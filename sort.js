@@ -9,15 +9,15 @@ function hierarchicalSort(rows, sortColumnName) {
   // console.log({ rows, sortColumnName });
   const rowsCopy = rows;
   const lengthOfRows = rowsCopy.length;
-  let rowsContainsTotalProp = [rowsCopy[0]];
-  let nestedProperties = [];
+
+  let mainCategoriesWithTotal = [];
+  let rowsContainsNestedTotalProp = [];
+  let headerWithTotalProp = [rowsCopy[0]];
   const rowsWithoutTotalProp = new Map();
 
   const sortColumnIndex = rowsCopy[0]
     .split(COLUMN_SEPERATOR)
     .indexOf(sortColumnName);
-
-  let metricsNumber = 0;
 
   // get count of properties and metric columns
   const propertiesNumber = rowsCopy[0]
@@ -25,38 +25,28 @@ function hierarchicalSort(rows, sortColumnName) {
     .reduce((prev, acc) => {
       if (acc.includes("property")) {
         prev = prev + 1;
-      } else {
-        metricsNumber += 1;
       }
       return prev;
     }, 0);
-  console.log({ propertiesNumber, metricsNumber });
+  console.log({ propertiesNumber });
 
   // 0 is header so we start from 1
   for (let i = 1; i < lengthOfRows; i++) {
     const singleRow = rowsCopy[i];
-    const currentRow = singleRow.split(COLUMN_SEPERATOR);
+    const singleRowSplitted = singleRow.split(COLUMN_SEPERATOR);
     // extract rows have total property
     if (singleRow.includes(TOTAL_SIGN)) {
-      if (!rowsContainsTotalProp[1]) {
-        rowsContainsTotalProp.push(singleRow);
+      if (singleRowSplitted[0] === TOTAL_SIGN) {
+        headerWithTotalProp.push(singleRow);
+      } else if (singleRowSplitted[1] === TOTAL_SIGN) {
+        mainCategoriesWithTotal.push(singleRow);
       } else {
-        // compare rowsContainsTotalProp[1] with current to check if $total/$total not placed as second record
-        const firstRow = rowsContainsTotalProp[1].split(COLUMN_SEPERATOR);
-        if (currentRow[0] === TOTAL_SIGN && firstRow[0] !== TOTAL_SIGN) {
-          const temp = firstRow;
-          rowsContainsTotalProp[1] = singleRow;
-          rowsContainsTotalProp.push(temp.join(COLUMN_SEPERATOR));
-        } else {
-          rowsContainsTotalProp.push(singleRow);
-        }
+        rowsContainsNestedTotalProp.push(singleRow);
       }
-    }
-
-    // create array of nested properties / categories -> womens footwear|shoes
-    // extract rows have nested properties but not total property
-    if (!singleRow.includes(TOTAL_SIGN)) {
-      const itemName = currentRow
+    } else {
+      // create array of nested properties / categories -> womens footwear|shoes
+      // extract rows have nested properties but not total property
+      const itemName = singleRowSplitted
         .slice(0, propertiesNumber - 1)
         .join(COLUMN_SEPERATOR);
       if (rowsWithoutTotalProp.has(itemName)) {
@@ -65,60 +55,92 @@ function hierarchicalSort(rows, sortColumnName) {
           singleRow,
         ]);
       } else {
-        nestedProperties.push(itemName);
         rowsWithoutTotalProp.set(itemName, [singleRow]);
       }
     }
   }
 
-  console.log(
-    "rowsContainsTotalProp before sorting using sortColumnName",
-    rowsContainsTotalProp
-  );
   // sort items by metric column
-  rowsContainsTotalProp.sort(
+  rowsContainsNestedTotalProp.sort(
     (a, b) =>
       b.split(COLUMN_SEPERATOR)[sortColumnIndex] -
       a.split(COLUMN_SEPERATOR)[sortColumnIndex]
   );
-  console.log("rowsContainsTotalProp after sorting using sortColumnName", {
-    rowsContainsTotalProp,
-  });
-  console.dir({ rowsWithoutTotalProp }, { depth: null });
+  mainCategoriesWithTotal.sort(
+    (a, b) =>
+      b.split(COLUMN_SEPERATOR)[sortColumnIndex] -
+      a.split(COLUMN_SEPERATOR)[sortColumnIndex]
+  );
+  const mainCategories = getMainCategories(mainCategoriesWithTotal);
 
-  // get every property and its level in rowsContainsTotalProp
-  // 0 for header, 1 for $total/$total
-  let level = 2;
-  const categorizeItemsBasedOnNestedProps = new Map();
-  for (let i = 2; i < rowsContainsTotalProp.length; i++) {
-    const row = rowsContainsTotalProp[i].split(COLUMN_SEPERATOR);
-    const property = row[0];
-    if (categorizeItemsBasedOnNestedProps.has(property)) continue;
-    categorizeItemsBasedOnNestedProps.set(property, level);
-    level += 1;
-  }
-  console.log({ categorizeItemsBasedOnNestedProps });
+  // insert the header and $total rows
+  const sortedItems = [...headerWithTotalProp];
 
-  // get every record starts with nestedProperty[i] and insert it to its section in rowsContainsTotalProp
-  const sortedItems = [rowsContainsTotalProp[0], rowsContainsTotalProp[1]];
-  for (let i = 2; i < rowsContainsTotalProp.length; i++) {
-    const rowsContainsTotalPropRow =
-      rowsContainsTotalProp[i].split(COLUMN_SEPERATOR);
-    if (rowsContainsTotalPropRow[1] === TOTAL_SIGN) continue;
-    const property = `${rowsContainsTotalPropRow[0]}|${rowsContainsTotalPropRow[1]}`;
-    const childrens = rowsWithoutTotalProp.get(property);
-    // sort childrens based on metric column
-    if (childrens.length) {
-      childrens.sort(
-        (a, b) =>
-          b.split(COLUMN_SEPERATOR)[sortColumnIndex] -
-          a.split(COLUMN_SEPERATOR)[sortColumnIndex]
+  for (let i = 0; i < mainCategories.length; i++) {
+    const mainCategoryName = mainCategories[i];
+    sortedItems.push(mainCategoriesWithTotal[i]);
+    if (rowsContainsNestedTotalProp.length) {
+      for (let j = 0; j < rowsContainsNestedTotalProp.length; j++) {
+        const rowHasNestedTotalProp =
+          rowsContainsNestedTotalProp[j].split(COLUMN_SEPERATOR);
+        const category = rowHasNestedTotalProp[0];
+        if (category === mainCategoryName) {
+          if (
+            rowHasNestedTotalProp
+              .slice(0, propertiesNumber - 1)
+              .includes(TOTAL_SIGN)
+          ) {
+            sortedItems.push(rowsContainsNestedTotalProp[j]);
+          } else {
+            const property = rowHasNestedTotalProp
+              .slice(0, propertiesNumber - 1)
+              .join(COLUMN_SEPERATOR);
+            sortedItems.push(
+              rowsContainsNestedTotalProp[j],
+              ...getChildrensByMainCategory(
+                rowsWithoutTotalProp,
+                property,
+                sortColumnIndex
+              )
+            );
+          }
+        }
+      }
+    } else {
+      sortedItems.push(
+        ...getChildrensByMainCategory(
+          rowsWithoutTotalProp,
+          mainCategoryName,
+          sortColumnIndex
+        )
       );
     }
-    // console.log({ childrens });
-    sortedItems.push(rowsContainsTotalProp[i], ...childrens);
   }
   console.log({ sortedItems });
+}
+
+function getChildrensByMainCategory(hashTable, category, sortColumnIndex) {
+  const childrens = hashTable.get(category);
+  // sort childrens based on metric column
+  if (childrens.length) {
+    childrens.sort(
+      (a, b) =>
+        b.split(COLUMN_SEPERATOR)[sortColumnIndex] -
+        a.split(COLUMN_SEPERATOR)[sortColumnIndex]
+    );
+  }
+  return childrens;
+}
+
+function getMainCategories(mainCategoriesWithTotal) {
+  const categories = [];
+  for (let i = 0; i < mainCategoriesWithTotal.length; i++) {
+    const row = mainCategoriesWithTotal[i].split(COLUMN_SEPERATOR);
+    const property = row[0];
+    if (categories.includes(property)) continue;
+    categories.push(property);
+  }
+  return categories;
 }
 
 // calling it
@@ -148,5 +170,5 @@ main();
 // parse text or csv file
 // pass rows to hierarchicalSort
 // sort rows by sort column arg[1]
-// write rowsContainsTotalProp to output file.csv & .txt
+// write rowsContainsNestedTotalProp to output file.csv & .txt
 // TODO: try to sort in place
