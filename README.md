@@ -1,4 +1,3 @@
-Challenge description [challenge.md](challenge.md)
 # Run Instructions
 Run
 ```
@@ -9,3 +8,5 @@ you should pass 3 arguments:
 - input file: data/data-big-input.txt
 - sort metric: net_sales_units
 - output file: data-big-output.csv
+
+# Challenge description [challenge.md](challenge.md)
