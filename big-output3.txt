@@ -1,0 +1,26 @@
+property0|property1|property2|property3|property4|net_sales|net_sales_units
+$total|$total|$total|$total|$total|599051.63|2728
+womens footwear|$total|$total|$total|$total|330267.42|1406
+womens footwear|shoes|$total|$total|$total|166186.02|864
+womens footwear|shoes|sneakers|$total|$total|40678.91|272
+womens footwear|shoes|sneakers|red|$total|40678.91|272
+womens footwear|shoes|sneakers|red|reeeee|40678.91|272
+womens footwear|shoes|sneakers|green|$total|678.91|2
+womens footwear|shoes|sneakers|green|qq|678.91|2
+womens footwear|shoes|sneakers|green|greeeeen|678.91|2
+womens footwear|shoes|sandals|$total|$total|48355|209
+womens footwear|shoes|sandals|red|$total|48355|209
+womens footwear|shoes|sandals|red|r-e-dd|48355|209
+womens footwear|shoes|sandals|green|$total|355|9
+womens footwear|shoes|sandals|green|gr-e-en|355|9
+womens footwear|boots|$total|$total|$total|164081.39|542
+womens footwear|boots|western|$total|$total|39314.15|144
+womens footwear|boots|western|red|$total|39314.15|144
+womens footwear|boots|western|red|reeed|39314.15|144
+womens footwear|boots|western|green|$total|9314.15|44
+womens footwear|boots|western|green|pp|9314.15|44
+womens footwear|boots|casuals|$total|$total|29090.73|125
+womens footwear|boots|casuals|red|$total|29090.73|125
+womens footwear|boots|casuals|red|reeedd|29090.73|125
+womens footwear|boots|casuals|green|$total|9090.73|25
+womens footwear|boots|casuals|green|grrr|9090.73|25

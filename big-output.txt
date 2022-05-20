@@ -19,8 +19,8 @@ womens footwear|boots|tailored|42454.92|121
 womens footwear|boots|work|19317.84|60
 womens footwear|boots|harness|12790.85|45
 womens footwear|boots|campus|13778.59|40
-womens footwear|boots|riding|7187.84|8
 womens footwear|boots|moto|2164.8|8
+womens footwear|boots|riding|7187.84|8
 womens footwear|boots|cold weather|-2018.34|-9
 mens footwear|$total|$total|178959.8|742
 mens footwear|shoes|$total|79219.9|401
@@ -51,10 +51,10 @@ accessories|men|$total|21232.8|41
 accessories|men|bags|21232.8|41
 accessories|giftable|$total|57|1
 accessories|giftable|giftable|57|1
-accessories|belts|$total|-20.19|0
-accessories|belts|womens|-20.19|0
 accessories|eye|$total|0|0
 accessories|eye|eye|0|0
+accessories|belts|$total|-20.19|0
+accessories|belts|womens|-20.19|0
 product care|$total|$total|2280.9|240
 product care|product care|$total|2280.9|240
 product care|product care|product care|2280.9|240

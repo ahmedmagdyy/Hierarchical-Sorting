@@ -6,159 +6,144 @@ const TOTAL_SIGN = "$total";
 const COLUMN_SEPERATOR = "|";
 const LINE_SEPERATOR = "\n";
 
+class Node {
+  constructor({
+    category = null,
+    hashMap = new Map(), // to save childrens
+    metrics = [],
+    // sortMetricValue = 0,
+    subCategorties = [],
+    parentNode = null,
+    fullPath = "",
+    depth = 0,
+  }) {
+    this.category = category;
+    this.hashMap = hashMap;
+    this.metrics = metrics;
+    // this.sortMetricValue = sortMetricValue;
+    this.subCategorties = subCategorties;
+    this.parentNode = parentNode;
+    this.fullPath = fullPath;
+    this.depth = depth;
+  }
+}
+
 function hierarchicalSort(rows, sortColumnName) {
   const rowsCopy = rows;
-  const sortColumnIndex = rowsCopy[0]
-    .split(COLUMN_SEPERATOR)
-    .indexOf(sortColumnName);
+  const sortColumnIndex =
+    rowsCopy[0].split(COLUMN_SEPERATOR).indexOf(sortColumnName) + 1;
+  const header = [rowsCopy[0]];
+  const headerSplitted = rowsCopy[0].split(COLUMN_SEPERATOR);
 
-  const {
-    mainCategoriesWithTotal,
-    rowsContainsNestedTotalProp,
-    headerWithTotalProp,
-    rowsWithoutTotalProp,
+  const propertiesCount = headerSplitted.reduce((prev, headerProperty) => {
+    headerProperty.includes("property") ? prev++ : prev;
+    return prev;
+  }, 0);
+  const merticsCount = headerSplitted.slice(propertiesCount).length;
+
+  // split each line into array of items
+  const rowsSplitted = rowsCopy.reduce((prev, row) => {
+    // to skip first row and empty rows
+    if (!row.includes("property") && !!row) {
+      prev.push(row.split(COLUMN_SEPERATOR));
+    }
+    // add line start with $total to header array
+    if (row.startsWith(TOTAL_SIGN)) header.push(row);
+    return prev;
+  }, []);
+
+  const treeRootNode = createTree({
+    rowsSplitted,
     propertiesCount,
-  } = categorizeRowsBasedOnCategory(rowsCopy);
+    merticsCount,
+  });
 
-  // sort items by metric column
-  rowsContainsNestedTotalProp.sort(
-    (a, b) =>
-      b.split(COLUMN_SEPERATOR)[sortColumnIndex] -
-      a.split(COLUMN_SEPERATOR)[sortColumnIndex]
-  );
-  mainCategoriesWithTotal.sort(
-    (a, b) =>
-      b.split(COLUMN_SEPERATOR)[sortColumnIndex] -
-      a.split(COLUMN_SEPERATOR)[sortColumnIndex]
-  );
-  const mainCategories = getMainCategories(mainCategoriesWithTotal);
+  return dfs({
+    root: treeRootNode,
+    header,
+    sortColumnIndex,
+    propertiesCount,
+  });
+}
 
-  // insert the header and $total rows
-  const sortedItems = [...headerWithTotalProp];
-
-  for (let i = 0; i < mainCategories.length; i++) {
-    const mainCategoryName = mainCategories[i];
-    sortedItems.push(mainCategoriesWithTotal[i]);
-    if (rowsContainsNestedTotalProp.length) {
-      for (let j = 0; j < rowsContainsNestedTotalProp.length; j++) {
-        const rowHasNestedTotalProp =
-          rowsContainsNestedTotalProp[j].split(COLUMN_SEPERATOR);
-        const category = rowHasNestedTotalProp[0];
-        if (category === mainCategoryName) {
-          if (
-            rowHasNestedTotalProp
-              .slice(0, propertiesCount - 1)
-              .includes(TOTAL_SIGN)
-          ) {
-            sortedItems.push(rowsContainsNestedTotalProp[j]);
-          } else {
-            const property = rowHasNestedTotalProp
-              .slice(0, propertiesCount - 1)
-              .join(COLUMN_SEPERATOR);
-            sortedItems.push(
-              rowsContainsNestedTotalProp[j],
-              ...getChildrensByMainCategory(
-                rowsWithoutTotalProp,
-                property,
-                sortColumnIndex
-              )
-            );
-          }
-        }
+function createTree({ rowsSplitted, propertiesCount, merticsCount }) {
+  // for each item in each row create a Node
+  const rootNode = new Node({});
+  // O(N * M)
+  // N rowsSplitted length
+  // M propertiesCount - 1
+  rowsSplitted.forEach((row) => {
+    let currentParent = rootNode; // set to root to search for categories - avoid adding duplicate categories
+    let categoryLevel = 1;
+    for (let index = 0; index < propertiesCount; index++) {
+      const item = row[index];
+      if (item === TOTAL_SIGN) {
+        currentParent.metrics = row.slice(row.length - merticsCount);
+        break;
       }
-    } else {
-      // if we don't have any nested categories with total
+      const categoryExists = currentParent.hashMap.get(item);
+      if (!categoryExists) {
+        const initNewItemNode = new Node({
+          category: item,
+          hashMap: new Map(),
+          metrics:
+            index + 1 === propertiesCount
+              ? row.slice(row.length - merticsCount)
+              : [],
+          // sortMetricValue:
+          //   index + 1 === propertiesCount ? row[sortColumnIndex - 1] : 0,
+          subCategorties: [],
+          parentNode: currentParent,
+          fullPath: currentParent.fullPath
+            ? currentParent.fullPath + COLUMN_SEPERATOR + item
+            : item,
+          depth: categoryLevel,
+        });
+        currentParent.hashMap.set(item, initNewItemNode); // add new node to hashmap of parent node
+        currentParent.subCategorties.push(initNewItemNode); // add to parent
+        currentParent = initNewItemNode; // set new node as parent to insert subcategories
+      } else {
+        currentParent = categoryExists;
+      }
+      categoryLevel++;
+    }
+  });
+  return rootNode;
+}
+
+function dfs({ root, header, sortColumnIndex, propertiesCount }) {
+  // DFS
+  // sort using stack
+  // push root node to stack
+  // while stack is not empty
+  // take top of stack
+  // sort childrens by metric value and push to top of stack
+  // push node fullPath joined by '|' & '$total' based on depth to sortedItems array
+  const stack = [root];
+  const sortedItems = [...header];
+
+  while (stack.length > 0) {
+    const currentNode = stack.shift(); // top of stack
+    currentNode.subCategorties.sort((a, b) => {
+      return (
+        a.metrics[sortColumnIndex - 1 - propertiesCount] -
+        b.metrics[sortColumnIndex - 1 - propertiesCount]
+      );
+    });
+    currentNode.subCategorties.forEach((subCategory) => {
+      stack.unshift(subCategory); // push childrens to stack
+    });
+    if (currentNode.depth > 0) {
       sortedItems.push(
-        ...getChildrensByMainCategory(
-          rowsWithoutTotalProp,
-          mainCategoryName,
-          sortColumnIndex
-        )
+        [
+          currentNode.fullPath,
+          ...Array(propertiesCount - currentNode.depth).fill(TOTAL_SIGN),
+          ...currentNode.metrics,
+        ].join(COLUMN_SEPERATOR)
       );
     }
   }
   return sortedItems;
-}
-
-function categorizeRowsBasedOnCategory(rows) {
-  const rowsCopy = rows;
-  const lengthOfRows = rowsCopy.length;
-
-  const rowsContainsNestedTotalProp = [];
-  const headerWithTotalProp = [rowsCopy[0]];
-  const rowsWithoutTotalProp = new Map();
-  const mainCategoriesWithTotal = [];
-
-  // get count of properties and metric columns
-  const propertiesCount = rowsCopy[0]
-    .split(COLUMN_SEPERATOR)
-    .reduce((prev, acc) => {
-      if (acc.includes("property")) {
-        prev = prev + 1;
-      }
-      return prev;
-    }, 0);
-
-  // 0 is header so we start from 1
-  for (let i = 1; i < lengthOfRows; i++) {
-    const singleRow = rowsCopy[i];
-    const singleRowSplitted = singleRow.split(COLUMN_SEPERATOR);
-    // extract rows have total property
-    if (singleRow.includes(TOTAL_SIGN)) {
-      if (singleRowSplitted[0] === TOTAL_SIGN) {
-        headerWithTotalProp.push(singleRow);
-      } else if (singleRowSplitted[1] === TOTAL_SIGN) {
-        mainCategoriesWithTotal.push(singleRow);
-      } else {
-        rowsContainsNestedTotalProp.push(singleRow);
-      }
-    } else {
-      // create array of nested properties / categories -> womens footwear|shoes
-      // extract rows have nested properties but not total property
-      const itemName = singleRowSplitted
-        .slice(0, propertiesCount - 1)
-        .join(COLUMN_SEPERATOR);
-      if (rowsWithoutTotalProp.has(itemName)) {
-        rowsWithoutTotalProp.set(itemName, [
-          ...rowsWithoutTotalProp.get(itemName),
-          singleRow,
-        ]);
-      } else {
-        rowsWithoutTotalProp.set(itemName, [singleRow]);
-      }
-    }
-  }
-  return {
-    rowsWithoutTotalProp,
-    rowsContainsNestedTotalProp,
-    mainCategoriesWithTotal,
-    headerWithTotalProp,
-    propertiesCount,
-  };
-}
-
-function getChildrensByMainCategory(hashTable, category, sortColumnIndex) {
-  const childrens = hashTable.get(category);
-  // sort childrens based on metric column
-  if (childrens.length) {
-    childrens.sort(
-      (a, b) =>
-        b.split(COLUMN_SEPERATOR)[sortColumnIndex] -
-        a.split(COLUMN_SEPERATOR)[sortColumnIndex]
-    );
-  }
-  return childrens;
-}
-
-function getMainCategories(mainCategoriesWithTotal) {
-  const categories = [];
-  for (let i = 0; i < mainCategoriesWithTotal.length; i++) {
-    const row = mainCategoriesWithTotal[i].split(COLUMN_SEPERATOR);
-    const property = row[0];
-    if (categories.includes(property)) continue;
-    categories.push(property);
-  }
-  return categories;
 }
 
 function writeToFile(fileName, content) {
@@ -171,7 +156,10 @@ function main() {
   const sortColumn = argv[3];
   const outputFilename = argv[4];
 
-  const fileContent = fs.readFileSync(path.join(__dirname, inputFilename), "utf8");
+  const fileContent = fs.readFileSync(
+    path.join(__dirname, inputFilename),
+    "utf8"
+  );
   const rows = fileContent.split(LINE_SEPERATOR);
 
   if (!rows[0].includes(sortColumn)) {
@@ -183,7 +171,6 @@ function main() {
   const sortedData = hierarchicalSort(rows, sortColumn);
   console.log({ sortedData });
 
-  // const outputFilename = `data_sorted.csv`;
   writeToFile(outputFilename, sortedData.join(LINE_SEPERATOR));
   console.log(`${outputFilename} created!`);
 }
